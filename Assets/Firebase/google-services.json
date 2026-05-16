@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "555386266034",
+    "project_id": "fir-servicios-984e5",
+    "storage_bucket": "fir-servicios-984e5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:555386266034:android:e4c45a4fa8c25ed39144ab",
+        "android_client_info": {
+          "package_name": "com.Paula.FirebaseConection"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIcdf7l4fI1IWBa8yVKrivB3b215-Bsfg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:555386266034:android:abce9fe2632aa8a59144ab",
+        "android_client_info": {
+          "package_name": "com.Paula.TallerFirebaseunity"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIcdf7l4fI1IWBa8yVKrivB3b215-Bsfg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
