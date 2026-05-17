@@ -5,17 +5,10 @@ using TowerDefense.Data;
 
 namespace TowerDefense.Analytics
 {
-    /// <summary>
-    /// Recolecta silenciosamente todas las métricas durante la partida.
-    /// No escribe a Firebase; solo acumula estado local.
-    /// Principio: Responsabilidad Única (SRP) — solo mide, no persiste.
-    /// </summary>
     public class AnalyticsCollector : MonoBehaviour
     {
-        // ── Singleton ligero (solo dentro de la escena de juego) ─────────
         public static AnalyticsCollector Instance { get; private set; }
 
-        // ── Estado interno ───────────────────────────────────────────────
         private string  _sessionId;
         private string  _playerName;
         private long    _startTimestamp;
@@ -27,27 +20,21 @@ namespace TowerDefense.Analytics
         private int     _shotsHit;
         private int     _wavesCompleted;
 
-        // Para tiempo de reacción: momento en que se disparó cada proyectil
         private readonly Dictionary<int, float> _shotFireTimes = new();
         private float   _totalReactionTime;
         private int     _reactionSamples;
 
-        // Para ángulo promedio del cañón
         private float   _angleAccumulator;
         private int     _angleSamples;
 
-        // Registro por oleada
         private readonly List<WaveRecord> _waveRecords = new();
         private WaveRecord _currentWave;
 
-        // ── Inicialización ───────────────────────────────────────────────
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
         }
-
-        /// <summary>Llama esto desde GameManager al empezar la partida.</summary>
         public void BeginSession(string playerName)
         {
             _sessionId       = Guid.NewGuid().ToString();
@@ -64,8 +51,6 @@ namespace TowerDefense.Analytics
             BeginWave(1);
         }
 
-        // ── Eventos de juego ─────────────────────────────────────────────
-
         public void RecordEnemySpawned()       => _enemiesSpawned++;
 
         public void RecordEnemyKilled()
@@ -73,9 +58,6 @@ namespace TowerDefense.Analytics
             _enemiesKilled++;
             _currentWave.enemiesKilledInWave++;
         }
-
-        /// <param name="projectileId">ID único del proyectil (GetInstanceID).</param>
-        /// <param name="cannonAngleDeg">Ángulo actual del cañón en grados.</param>
         public void RecordShotFired(int projectileId, float cannonAngleDeg)
         {
             _shotsFired++;
@@ -85,7 +67,6 @@ namespace TowerDefense.Analytics
             _angleSamples++;
         }
 
-        /// <param name="projectileId">ID del proyectil que impactó.</param>
         public void RecordShotHit(int projectileId)
         {
             _shotsHit++;
@@ -113,13 +94,6 @@ namespace TowerDefense.Analytics
             _currentWave.waveDurationSec    = Time.time - _currentWave.waveDurationSec;
             _waveRecords.Add(_currentWave);
         }
-
-        // ── Construcción del snapshot final ─────────────────────────────
-
-        /// <summary>
-        /// Genera el snapshot inmutable de la sesión.
-        /// Llamado por GameManager al terminar la partida.
-        /// </summary>
         public SessionData BuildSessionData(int finalScore, bool playerWon)
         {
             float duration = Time.time - _sessionStart;

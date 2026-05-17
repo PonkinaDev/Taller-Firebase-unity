@@ -9,91 +9,70 @@ using TowerDefense.Services;
 
 namespace TowerDefense.UI
 {
-    /// <summary>
-    /// Escena "Results": muestra puntaje propio + ranking global desde Firebase
-    /// + gráficas de distribución y métricas.
-    ///
-    /// INSPECTOR ─ Escena "Results" ───────────────────────────────────────
-    ///   Adjuntar a GameObject "ResultsController"
-    ///
-    ///   ── Panel: Resultados propios ──
-    ///   • playerScoreLabel  → "Tu puntaje: 0"
-    ///   • wavesLabel        → "Oleadas: 0"
-    ///   • accuracyLabel     → "Precisión: 0%"
-    ///
-    ///   ── Panel: Ranking ──
-    ///   • rankingContainer  → GameObject (Vertical Layout Group)
-    ///   • rankingRowPrefab  → Prefab con 3 TextMeshProUGUI (pos, nombre, score)
-    ///
-    ///   ── Panel: Dashboard / Gráficas ──
-    ///   • barChartParent    → RectTransform que contiene las barras
-    ///   • barPrefab         → Prefab: UI Image (color sólido) + label debajo
-    ///   • accuracyBarParent → RectTransform para gráfica de precisión
-    ///
-    ///   ── Botones ──
-    ///   • replayButton  → "JUGAR DE NUEVO"
-    ///   • menuButton    → "MENÚ"
-    ///
-    ///   ── Estado ──
-    ///   • loadingLabel  → "Cargando ranking..." (ocultar al terminar)
-    /// </summary>
     public class ResultsController : MonoBehaviour
     {
-        [Header("Stats propias")]
+        [Header("Player Stats")]
         [SerializeField] private TextMeshProUGUI playerScoreLabel;
         [SerializeField] private TextMeshProUGUI wavesLabel;
         [SerializeField] private TextMeshProUGUI accuracyLabel;
 
-        [Header("Ranking")]
-        [SerializeField] private Transform       rankingContainer;
-        [SerializeField] private GameObject      rankingRowPrefab;
+        [Header("Leaderboard")]
+        [SerializeField] private Transform rankingContainer;
+        [SerializeField] private GameObject rankingRowPrefab;
         [SerializeField] private TextMeshProUGUI loadingLabel;
 
-        [Header("Dashboard - Distribución de puntajes")]
-        [SerializeField] private RectTransform   barChartParent;
-        [SerializeField] private GameObject      barPrefab;
+        [Header("Dashboard - Score Distribution")]
+        [SerializeField] private RectTransform barChartParent;
+        [SerializeField] private GameObject barPrefab;
 
-        [Header("Dashboard - Precisión promedio")]
-        [SerializeField] private RectTransform   accuracyBarParent;
+        [Header("Dashboard - Average Accuracy")]
+        [SerializeField] private RectTransform accuracyBarParent;
 
-        [Header("Navegación")]
-        [SerializeField] private Button          replayButton;
-        [SerializeField] private Button          menuButton;
+        [Header("Navigation")]
+        [SerializeField] private Button replayButton;
+        [SerializeField] private Button menuButton;
 
-        // ── Constants ────────────────────────────────────────────────────
         private const float BAR_MAX_HEIGHT = 200f;
-        private static readonly int[] SCORE_BUCKETS = { 0, 100, 200, 300, 500, 750, 1000, 1500 };
 
-        // ── Lifecycle ────────────────────────────────────────────────────
+        private static readonly int[] SCORE_BUCKETS =
+        {
+            0, 100, 200, 300, 500, 750, 1000, 1500
+        };
+
         private void Start()
         {
-            // Datos locales de la sesión recién terminada
-            int   score    = PlayerPrefs.GetInt("FinalScore", 0);
-            int   waves    = PlayerPrefs.GetInt("WavesCompleted", 0);
+            int score = PlayerPrefs.GetInt("FinalScore", 0);
+            int waves = PlayerPrefs.GetInt("WavesCompleted", 0);
             float accuracy = PlayerPrefs.GetFloat("Accuracy", 0f);
 
-            playerScoreLabel.text = $"Tu puntaje: <b>{score}</b>";
-            wavesLabel.text       = $"Oleadas completadas: {waves}";
-            accuracyLabel.text    = $"Precisión de disparo: {accuracy:F1}%";
+            playerScoreLabel.text = $"Your Score: <b>{score}</b>";
+            wavesLabel.text = $"Waves Completed: {waves}";
+            accuracyLabel.text = $"Shot Accuracy: {accuracy:F1}%";
 
-            replayButton.onClick.AddListener(() => SceneManager.LoadScene("Game"));
-            menuButton.onClick.AddListener(()   => SceneManager.LoadScene("Menu"));
+            replayButton.onClick.AddListener(() =>
+                SceneManager.LoadScene("Game"));
+
+            menuButton.onClick.AddListener(() =>
+                SceneManager.LoadScene("Menu"));
 
             StartCoroutine(LoadFromFirebase());
         }
 
-        // ── Carga desde Firebase ─────────────────────────────────────────
         private IEnumerator LoadFromFirebase()
         {
-            loadingLabel.text = "Cargando ranking…";
+            loadingLabel.text = "Loading leaderboard...";
 
-            // Highscores
-            var highscoreTask = FirebaseService.Instance.GetHighscoresAsync(10);
-            yield return new WaitUntil(() => highscoreTask.IsCompleted);
+            var highscoreTask =
+                FirebaseService.Instance.GetHighscoresAsync(10);
 
-            // Sesiones recientes para el dashboard
-            var sessionsTask = FirebaseService.Instance.GetRecentSessionsAsync(50);
-            yield return new WaitUntil(() => sessionsTask.IsCompleted);
+            yield return new WaitUntil(() =>
+                highscoreTask.IsCompleted);
+
+            var sessionsTask =
+                FirebaseService.Instance.GetRecentSessionsAsync(50);
+
+            yield return new WaitUntil(() =>
+                sessionsTask.IsCompleted);
 
             loadingLabel.gameObject.SetActive(false);
 
@@ -102,7 +81,6 @@ namespace TowerDefense.UI
             BuildAccuracyChart(sessionsTask.Result);
         }
 
-        // ── Tabla de ranking ─────────────────────────────────────────────
         private void BuildRankingTable(List<HighscoreEntry> entries)
         {
             foreach (Transform child in rankingContainer)
@@ -113,10 +91,14 @@ namespace TowerDefense.UI
 
             foreach (var entry in entries)
             {
-                var row = Instantiate(rankingRowPrefab, rankingContainer);
-                var texts = row.GetComponentsInChildren<TextMeshProUGUI>();
+                var row = Instantiate(
+                    rankingRowPrefab,
+                    rankingContainer
+                );
 
-                // Espera que rankingRowPrefab tenga 3 TMP en orden: pos, nombre, score
+                var texts =
+                    row.GetComponentsInChildren<TextMeshProUGUI>();
+
                 if (texts.Length >= 3)
                 {
                     texts[0].text = $"#{rank}";
@@ -124,22 +106,31 @@ namespace TowerDefense.UI
                     texts[2].text = entry.score.ToString();
                 }
 
-                // Resaltar fila propia
                 bool isMe = entry.playerName == myName;
+
                 var bg = row.GetComponent<Image>();
+
                 if (bg != null)
-                    bg.color = isMe ? new Color(1f, 0.9f, 0.2f, 0.3f) : Color.clear;
+                {
+                    bg.color = isMe
+                        ? new Color(1f, 0.9f, 0.2f, 0.3f)
+                        : Color.clear;
+                }
 
                 rank++;
             }
         }
 
-        // ── Gráfica 1: Distribución de puntajes ──────────────────────────
-        private void BuildScoreDistributionChart(List<SessionData> sessions)
+        private void BuildScoreDistributionChart(
+            List<SessionData> sessions)
         {
-            if (barChartParent == null || barPrefab == null || sessions.Count == 0) return;
+            if (barChartParent == null ||
+                barPrefab == null ||
+                sessions.Count == 0)
+            {
+                return;
+            }
 
-            // Agrupar en buckets
             int bucketCount = SCORE_BUCKETS.Length;
             int[] counts = new int[bucketCount];
 
@@ -147,65 +138,129 @@ namespace TowerDefense.UI
             {
                 for (int i = bucketCount - 1; i >= 0; i--)
                 {
-                    if (s.finalScore >= SCORE_BUCKETS[i]) { counts[i]++; break; }
+                    if (s.finalScore >= SCORE_BUCKETS[i])
+                    {
+                        counts[i]++;
+                        break;
+                    }
                 }
             }
 
             int maxCount = Mathf.Max(1, Mathf.Max(counts));
-            foreach (Transform child in barChartParent) Destroy(child.gameObject);
+
+            foreach (Transform child in barChartParent)
+                Destroy(child.gameObject);
 
             for (int i = 0; i < bucketCount; i++)
             {
                 var bar = Instantiate(barPrefab, barChartParent);
-                float height = BAR_MAX_HEIGHT * ((float)counts[i] / maxCount);
 
-                var rect = bar.GetComponentInChildren<Image>().rectTransform;
-                rect.sizeDelta = new Vector2(rect.sizeDelta.x, Mathf.Max(4f, height));
+                float height =
+                    BAR_MAX_HEIGHT *
+                    ((float)counts[i] / maxCount);
 
-                var label = bar.GetComponentInChildren<TextMeshProUGUI>();
+                var rect =
+                    bar.GetComponentInChildren<Image>().rectTransform;
+
+                rect.sizeDelta = new Vector2(
+                    rect.sizeDelta.x,
+                    Mathf.Max(4f, height)
+                );
+
+                var label =
+                    bar.GetComponentInChildren<TextMeshProUGUI>();
+
                 if (label != null)
-                    label.text = $"{SCORE_BUCKETS[i]}+\n({counts[i]})";
+                {
+                    label.text =
+                        $"{SCORE_BUCKETS[i]}+\n({counts[i]})";
+                }
             }
         }
 
-        // ── Gráfica 2: Precisión promedio por jugador (top 5) ────────────
-        private void BuildAccuracyChart(List<SessionData> sessions)
+        private void BuildAccuracyChart(
+            List<SessionData> sessions)
         {
-            if (accuracyBarParent == null || barPrefab == null || sessions.Count == 0) return;
+            if (accuracyBarParent == null ||
+                barPrefab == null ||
+                sessions.Count == 0)
+            {
+                return;
+            }
 
-            // Agrupar precisión por jugador (promedio)
-            var totals = new Dictionary<string, (float sum, int count)>();
+            var totals =
+                new Dictionary<string, (float sum, int count)>();
+
             foreach (var s in sessions)
             {
                 if (!totals.ContainsKey(s.playerName))
+                {
                     totals[s.playerName] = (0f, 0);
-                var (sum, cnt) = totals[s.playerName];
-                totals[s.playerName] = (sum + s.accuracy, cnt + 1);
+                }
+
+                var (sum, count) = totals[s.playerName];
+
+                totals[s.playerName] =
+                    (sum + s.accuracy, count + 1);
             }
 
-            // Top 5
-            var top5 = new List<(string name, float avg)>();
-            foreach (var kv in totals)
-                top5.Add((kv.Key, kv.Value.sum / kv.Value.count));
-            top5.Sort((a, b) => b.avg.CompareTo(a.avg));
-            if (top5.Count > 5) top5.RemoveRange(5, top5.Count - 5);
+            var top5 =
+                new List<(string name, float avg)>();
 
-            foreach (Transform child in accuracyBarParent) Destroy(child.gameObject);
+            foreach (var kv in totals)
+            {
+                top5.Add((
+                    kv.Key,
+                    kv.Value.sum / kv.Value.count
+                ));
+            }
+
+            top5.Sort((a, b) =>
+                b.avg.CompareTo(a.avg));
+
+            if (top5.Count > 5)
+            {
+                top5.RemoveRange(5, top5.Count - 5);
+            }
+
+            foreach (Transform child in accuracyBarParent)
+                Destroy(child.gameObject);
 
             foreach (var (name, avg) in top5)
             {
-                var bar = Instantiate(barPrefab, accuracyBarParent);
-                float height = BAR_MAX_HEIGHT * (avg / 100f);
+                var bar = Instantiate(
+                    barPrefab,
+                    accuracyBarParent
+                );
 
-                var rect = bar.GetComponentInChildren<Image>().rectTransform;
-                rect.sizeDelta = new Vector2(rect.sizeDelta.x, Mathf.Max(4f, height));
+                float height =
+                    BAR_MAX_HEIGHT * (avg / 100f);
 
-                var img = bar.GetComponentInChildren<Image>();
-                if (img != null) img.color = new Color(0.2f, 0.8f, 0.4f);
+                var rect =
+                    bar.GetComponentInChildren<Image>().rectTransform;
 
-                var label = bar.GetComponentInChildren<TextMeshProUGUI>();
+                rect.sizeDelta = new Vector2(
+                    rect.sizeDelta.x,
+                    Mathf.Max(4f, height)
+                );
+
+                var img =
+                    bar.GetComponentInChildren<Image>();
+
+                if (img != null)
+                {
+                    img.color =
+                        new Color(0.2f, 0.8f, 0.4f);
+                }
+
+                var label =
+                    bar.GetComponentInChildren<TextMeshProUGUI>();
+
                 if (label != null)
-                    label.text = $"{name}\n{avg:F0}%";
+                {
+                    label.text =
+                        $"{name}\n{avg:F0}%";
+                }
             }
         }
     }

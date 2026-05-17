@@ -6,115 +6,175 @@ using TowerDefense.Services;
 
 namespace TowerDefense.Core
 {
-    /// <summary>
-    /// Orquesta el flujo completo de la partida.
-    /// SRP: coordina subsistemas, no los implementa.
-    /// DIP: depende de abstracciones (AnalyticsCollector, FirebaseService).
-    /// 
-    /// INSPECTOR ──────────────────────────────────────────────
-    ///   • Asignar en la escena "Game":
-    ///     - spawnerRef   → GameObject con EnemySpawner
-    ///     - baseRef      → GameObject con BaseDefense
-    ///     - scorePerKill → puntos por enemigo (ej. 10)
-    ///     - scorePerWave → puntos por oleada completada (ej. 50)
-    /// </summary>
     public class GameManager : MonoBehaviour
     {
         public static GameManager Instance { get; private set; }
 
-        [Header("Referencias de escena")]
+        [Header("Scene References")]
         [SerializeField] private EnemySpawner spawnerRef;
-        [SerializeField] private BaseDefense   baseRef;
+        [SerializeField] private BaseDefense baseRef;
 
-        [Header("Puntuación")]
+        [Header("Score")]
         [SerializeField] private int scorePerKill = 10;
         [SerializeField] private int scorePerWave = 50;
 
-        // Estado público
-        public int   CurrentScore  { get; private set; }
-        public bool  GameOver      { get; private set; }
+        public int CurrentScore { get; private set; }
+        public bool GameOver { get; private set; }
 
         private bool _resultsSaved;
 
-        // ── Lifecycle ────────────────────────────────────────────────────
+        private int _currentWave;
+        private int _enemiesThisWave;
+        private int _killsThisWave;
+
+        // ─────────────────────────────────────────────
+
         private void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
             Instance = this;
         }
 
         private void Start()
         {
-            string pName = PlayerPrefs.GetString("PlayerName", "Anónimo");
-            AnalyticsCollector.Instance.BeginSession(pName);
+            string playerName =
+                PlayerPrefs.GetString("PlayerName", "Anonymous");
+
+            AnalyticsCollector.Instance.BeginSession(playerName);
+
             spawnerRef.StartSpawning();
         }
 
-        // ── Eventos de juego (llamados por otros scripts) ────────────────
+        public void OnWaveStarted(int waveNumber, int enemiesInWave)
+        {
+            _currentWave = waveNumber;
+            _enemiesThisWave = enemiesInWave;
+            _killsThisWave = 0;
 
-        /// <summary>Llamado por cada Enemy al ser destruido.</summary>
+            Debug.Log(
+                $"Wave {_currentWave} started with {_enemiesThisWave} enemies."
+            );
+        }
+
+
         public void OnEnemyKilled()
         {
-            if (GameOver) return;
+            if (GameOver)
+                return;
+
             CurrentScore += scorePerKill;
+
+            _killsThisWave++;
+
             AnalyticsCollector.Instance.RecordEnemyKilled();
+
             UIManager.Instance?.UpdateScore(CurrentScore);
+
+
+            if (_killsThisWave >= _enemiesThisWave)
+            {
+                CurrentScore += scorePerWave;
+
+                AnalyticsCollector.Instance.EndWave(
+                    _enemiesThisWave
+                );
+
+                AnalyticsCollector.Instance.BeginWave(
+                    _currentWave + 1
+                );
+
+                UIManager.Instance?.UpdateScore(CurrentScore);
+
+                UIManager.Instance?.ShowWaveMessage(_currentWave);
+
+                Debug.Log($"Wave {_currentWave} completed.");
+            }
         }
 
-        /// <summary>Llamado por EnemySpawner al completar una oleada.</summary>
-        public void OnWaveCompleted(int waveNumber, int enemiesInWave)
-        {
-            if (GameOver) return;
-            CurrentScore += scorePerWave;
-            AnalyticsCollector.Instance.EndWave(enemiesInWave);
-            AnalyticsCollector.Instance.BeginWave(waveNumber + 1);
-            UIManager.Instance?.UpdateScore(CurrentScore);
-            UIManager.Instance?.ShowWaveMessage(waveNumber);
-        }
-
-        /// <summary>Llamado por BaseDefense cuando un enemigo la toca.</summary>
         public void OnBaseReached()
         {
-            if (GameOver) return;
+            if (GameOver)
+                return;
+
             GameOver = true;
+
             spawnerRef.StopSpawning();
-            StartCoroutine(EndGameRoutine(playerWon: false));
+
+            StartCoroutine(
+                EndGameRoutine(playerWon: false)
+            );
         }
 
-        // ── Finalización ─────────────────────────────────────────────────
         private IEnumerator EndGameRoutine(bool playerWon)
         {
-            // 1. Construir snapshot
-            var session = AnalyticsCollector.Instance.BuildSessionData(CurrentScore, playerWon);
+            var session =
+                AnalyticsCollector.Instance.BuildSessionData(
+                    CurrentScore,
+                    playerWon
+                );
 
-            // 2. Guardar en Firebase (async; esperamos sin bloquear el hilo)
             _resultsSaved = false;
-            StartCoroutine(SaveToFirebase(session));
 
-            // 3. Mostrar breve animación de fin de partida
+            StartCoroutine(
+                SaveToFirebase(session)
+            );
+
             UIManager.Instance?.ShowGameOver(playerWon);
+
             yield return new WaitForSeconds(1.5f);
 
-            // 4. Esperar a que Firebase termine (máx 5 seg)
             float waited = 0f;
-            while (!_resultsSaved && waited < 5f) { waited += Time.deltaTime; yield return null; }
 
-            // 5. Guardar datos para la escena de resultados
-            PlayerPrefs.SetInt("FinalScore", CurrentScore);
-            PlayerPrefs.SetInt("WavesCompleted", session.wavesCompleted);
-            PlayerPrefs.SetFloat("Accuracy", session.accuracy);
+            while (!_resultsSaved && waited < 5f)
+            {
+                waited += Time.deltaTime;
+                yield return null;
+            }
 
-            // 6. Ir a resultados
+            PlayerPrefs.SetInt(
+                "FinalScore",
+                CurrentScore
+            );
+
+            PlayerPrefs.SetInt(
+                "WavesCompleted",
+                session.wavesCompleted
+            );
+
+            PlayerPrefs.SetFloat(
+                "Accuracy",
+                session.accuracy
+            );
+
             SceneManager.LoadScene("Results");
         }
 
-        private IEnumerator SaveToFirebase(TowerDefense.Data.SessionData session)
+        private IEnumerator SaveToFirebase(
+            TowerDefense.Data.SessionData session
+        )
         {
-            var saveSession = FirebaseService.Instance.SaveSessionAsync(session);
-            var saveHighscore = FirebaseService.Instance.SaveHighscoreAsync(
-                session.playerName, session.finalScore);
+            var saveSession =
+                FirebaseService.Instance.SaveSessionAsync(
+                    session
+                );
 
-            yield return new WaitUntil(() => saveSession.IsCompleted && saveHighscore.IsCompleted);
+            var saveHighscore =
+                FirebaseService.Instance.SaveHighscoreAsync(
+                    session.playerName,
+                    session.finalScore
+                );
+
+            yield return new WaitUntil(
+                () =>
+                    saveSession.IsCompleted &&
+                    saveHighscore.IsCompleted
+            );
+
             _resultsSaved = true;
         }
     }

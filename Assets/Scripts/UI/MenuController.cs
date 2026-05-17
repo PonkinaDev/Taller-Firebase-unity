@@ -5,23 +5,6 @@ using UnityEngine.UI;
 
 namespace TowerDefense.UI
 {
-    /// <summary>
-    /// Controlador de la escena "Menu".
-    ///
-    /// INSPECTOR ─ Escena "Menu" ──────────────────────────────────────────
-    ///   • Adjuntar a GameObject "MenuController"
-    ///   • playerNameInput → TMP_InputField "Ingresa tu nombre"
-    ///   • startButton     → Button "JUGAR"
-    ///   • errorLabel      → TextMeshProUGUI (pequeño, rojo, oculto)
-    ///
-    /// Jerarquía Canvas sugerida:
-    ///   Canvas
-    ///   └── Panel (fondo oscuro semitransparente)
-    ///       ├── Title (TextMeshPro "⚔ DEFENSA DE TORRE ⚔")
-    ///       ├── playerNameInput
-    ///       ├── startButton
-    ///       └── errorLabel
-    /// </summary>
     public class MenuController : MonoBehaviour
     {
         [SerializeField] private TMP_InputField playerNameInput;
@@ -33,7 +16,6 @@ namespace TowerDefense.UI
             errorLabel.text = "";
             startButton.onClick.AddListener(OnStartClicked);
 
-            // Restaurar nombre anterior si existe
             string saved = PlayerPrefs.GetString("PlayerName", "");
             if (!string.IsNullOrEmpty(saved))
                 playerNameInput.text = saved;

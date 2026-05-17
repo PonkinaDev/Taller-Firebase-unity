@@ -9,11 +9,6 @@ using TowerDefense.Data;
 
 namespace TowerDefense.Services
 {
-    /// <summary>
-    /// Único responsable de hablar con Firebase Firestore.
-    /// SRP: solo persiste / lee datos. No conoce la lógica de juego.
-    /// OCP: agregar nuevas colecciones no modifica los métodos existentes.
-    /// </summary>
     public class FirebaseService : MonoBehaviour
     {
         public static FirebaseService Instance { get; private set; }
@@ -21,7 +16,6 @@ namespace TowerDefense.Services
         private FirebaseFirestore _db;
         public  bool IsReady { get; private set; }
 
-        // ── Lifecycle ────────────────────────────────────────────────────
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -45,13 +39,6 @@ namespace TowerDefense.Services
                 Debug.LogError($"[Firebase] Error de dependencias: {dependencyTask.Result}");
             }
         }
-
-        // ── Escritura de sesión ──────────────────────────────────────────
-
-        /// <summary>
-        /// Guarda la sesión completa en la colección <c>sessions</c>.
-        /// Llámalo solo al finalizar la partida (no durante el juego).
-        /// </summary>
         public async Task SaveSessionAsync(SessionData data)
         {
             if (!IsReady) { Debug.LogWarning("[Firebase] No está listo."); return; }
@@ -74,7 +61,6 @@ namespace TowerDefense.Services
                 ["avgCannonAngle"]      = data.avgCannonAngle,
             };
 
-            // Sub-colección de oleadas
             try
             {
                 await _db.Collection("sessions").Document(data.sessionId).SetAsync(doc);
@@ -100,14 +86,10 @@ namespace TowerDefense.Services
             }
         }
 
-        // ── Escritura de highscore ───────────────────────────────────────
-
-        /// <summary>Upsert del puntaje del jugador en la colección <c>highscores</c>.</summary>
         public async Task SaveHighscoreAsync(string playerName, int score)
         {
             if (!IsReady) return;
 
-            // Usamos el nombre como ID para facilitar el upsert
             string docId = playerName.ToLower().Trim().Replace(" ", "_");
             var docRef   = _db.Collection("highscores").Document(docId);
 
@@ -134,9 +116,6 @@ namespace TowerDefense.Services
             }
         }
 
-        // ── Lectura de ranking ───────────────────────────────────────────
-
-        /// <summary>Devuelve los top N puntajes ordenados de mayor a menor.</summary>
         public async Task<List<HighscoreEntry>> GetHighscoresAsync(int limit = 10)
         {
             var result = new List<HighscoreEntry>();
@@ -165,10 +144,6 @@ namespace TowerDefense.Services
             }
             return result;
         }
-
-        // ── Lectura de sesiones para dashboard ──────────────────────────
-
-        /// <summary>Devuelve las últimas N sesiones para visualizar en el dashboard.</summary>
         public async Task<List<SessionData>> GetRecentSessionsAsync(int limit = 50)
         {
             var result = new List<SessionData>();
